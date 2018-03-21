@@ -29,19 +29,26 @@
 
 .# Abstract
 
-This document adds additional properties to the JMAP Mail objects to allow
-data about IMAP mailstores to be exposed via JMAP.
+This document adds additional properties to the [@!I-D.ietf-jmap-mail]
+Email and Mailbox objects to allow data about IMAP mailstores to be
+exposed via JMAP.
 
 {mainmatter}
 
 # Introduction
 
-JMAP mailstores are expected to be built in such a way that they also
-allow IMAP access.  IMAP mailboxes can contain individual messages by
-UID, and those can have properties which specific to the individual
-message.  If the server supports multiple IMAP messages collapsed into
-a single JMAP message (because they have identical MSGID/EmailId) then
-it can be useful to see the underlying IMAP data via JMAP.
+JMAP mailstores may be built in such a way that they also allow IMAP
+access to the underlying data.
+
+IMAP mailboxes have some STATUS data which is not required for JMAP
+and hence not exposed by default.  This document provides a way to
+access those values via JMAP.
+
+IMAP mailboxes contain individual messages by UID, and those can
+have properties which specific to the individual message.  If the
+server supports multiple IMAP messages collapsed into a single JMAP
+message (due to identical Email/id or [@!I-D.gondwana-imap-uniqueid] MSGID)
+then it can be useful to expose the underlying IMAP data via JMAP.
 
 # Conventions Used In This Document
 
@@ -70,7 +77,7 @@ This extension adds a single property to the Email object:
 
 - **modseq**: Integer|null
   This is the modseq of the individual message within the IMAP store,
-  or null if the server doesn't support [@RFC7162].
+  or null if the server doesn't support [@!RFC7162].
 
 - **keywords**: String[Boolean]
   This is identical to the "keywords" fetch item at the top level,
@@ -86,7 +93,7 @@ This extension adds a single property to the Email object:
 
 - **savedate**: Date|null
   This is the date at which the message was added to this mailbox,
-  or null if the server doesn't support [@I-D.ietf-extra-imap-savedate].
+  or null if the server doesn't support [@!I-D.ietf-extra-imap-savedate].
 
 # Mailbox object properties
 
@@ -104,18 +111,18 @@ The ImapStatus object has the following properties:
   via IMAP would work if given this name.
 
 - **uidvalidity**: Integer
-  The UIDVALIDITY as defined in [@RFC3501] for the underlying mailbox.
+  The UIDVALIDITY as defined in [@!RFC3501] for the underlying mailbox.
 
 - **uidnext**: Integer
-  The UIDNEXT as defined in [@RFC3501] for the underlying mailbox.
+  The UIDNEXT as defined in [@!RFC3501] for the underlying mailbox.
 
 - **messages**: Integer
   The MESSAGES status item (number of messages in mailbox) as defined
-  in [@RFC3501] for the underlying mailbox.
+  in [@!RFC3501] for the underlying mailbox.
 
 - **highestmodseq**: Integer|null
   The HIGHESTMODSEQ of the mailbox, or null if the mailbox does not
-  support [@RFC7162].
+  support [@!RFC7162].
 
 # Implementation considerations
 
@@ -134,10 +141,15 @@ registry to add the it into.
 
 # Security Considerations
 
-There are no known security considerations for this extension.
+All this data is visible via IMAP already for users with the same
+authentication rights, however implementations must ensure that if
+a message is both in mailboxes where the user has the [@!RFC4314]
+READ ACL and other mailboxes where the use does not have read access,
+that the imapdata response is filtered to avoid leaking information
+about non-visible mailboxes.
 
 # Acknowledgments
 
-Nope!
+TBD.
 
 {backmatter}
