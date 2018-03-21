@@ -1,13 +1,13 @@
 %%%
-    title = "IMAP Extension for unique identifiers"
-    abbrev = "IMAP UniqueID"
+    title = "JMAP Extension for imap data"
+    abbrev = "JMAP IMAPData"
     category = "std"
-    docName = "draft-gondwana-imap-uniqueid-00"
+    docName = "draft-gondwana-jmap-imapdata-00"
     updates = []
     ipr= "trust200902"
     area = "Applications"
-    workgroup = "EXTRA"
-    keyword = ["IMAP", "email"]
+    workgroup = "JMAP"
+    keyword = ["IMAP", "JMAP", "email"]
 
     date = 2018-03-19T00:00:00Z
 
@@ -29,42 +29,25 @@
 
 .# Abstract
 
-This document adds new properties to IMAP mailboxes and messages to allow
-clients to more efficiently re-use cached data for resources which have
-changed location on the server.
+This document adds additional properties to the JMAP Mail objects to allow
+data about IMAP mailstores to be exposed via JMAP.
 
 {mainmatter}
 
 # Introduction
 
-IMAP stores are often used by many clients, which each cache information
-locally about the server state so that they don't need to download anything
-again.  [@!RFC3501] defines that a mailbox can be uniquely referenced by
-its name and UIDVALIDITY, and a message within that mailbox can be uniquely
-referenced by its mailbox (name + UIDVALIDITY) and UID.
-
-Further, [@!RFC4315] defines a COPYUID response which allows a client which
-copies messages between folders to know the mapping between the UIDs in the
-source and destination mailboxes, and hence update its local cache.
-
-So a client which copies (or [@!RFC6851] moves) messages or renames folders
-can update its local cache, but any other client connected to the same store
-can not know with certainty that the messages are identical, and so will
-re-download everything.
-
-This extension adds new properties to a message (MSGID) and mailbox (UNIQUEID)
-which allow a client to quickly identify messages or mailboxes which have been
-renamed by another client.
-
-This extension also adds an optional thread identifier (THRID) to messages,
-which can be used by the server to indicate messages which it has identified
-to be related.
+JMAP mailstores are expected to be built in such a way that they also
+allow IMAP access.  IMAP mailboxes can contain individual messages by
+UID, and those can have properties which specific to the individual
+message.  If the server supports multiple IMAP messages collapsed into
+a single JMAP message (because they have identical MSGID/EmailId) then
+it can be useful to see the underlying IMAP data via JMAP.
 
 # Conventions Used In This Document
 
 
-In examples, "C:" indicates lines sent by a client that is connected
-to a server. "S:" indicates lines sent by the server to the client.
+In examples, "C:" indicates data sent by a client that is connected
+to a server. "S:" indicates data sent by the server to the client.
 
 The key words "**MUST**", "**MUST NOT**", "**REQUIRED**", "**SHALL**",
 "**SHALL NOT**", "**SHOULD**", "**SHOULD NOT**", "**RECOMMENDED**",
@@ -73,225 +56,88 @@ described in [@!RFC2119] when they appear in ALL CAPS.  These words may
 also appear in this document in lower case as plain English words,
 absent their normative meanings.
 
+# Email object properties
 
-# CAPABILITY Identification
+This extension adds a single property to the Email object:
 
-IMAP servers that support this extension MUST include "UNIQUEID" in
-the response list to the CAPABILITY command.
+- **imapdata**: String[Interger[ImapData]]
+  This is a map of mailbox id to a map of uid to ImapData Object
 
-# STATUS Command and Response Extensions
+# ImapData Object
 
-This extension defines one new status data item for the STATUS
-command and response:
+- **uid**: Integer
+  Is the same value as the key.
 
-UNIQUEID
-      A unique identifier for the mailbox.  This identifier SHOULD be
-      retained when the mailbox is renamed.  This identifer MUST NOT
-      be identical if the mailbox does not meet the invarients for a
-      mailbox with the same name and uidvalidity as a mailbox
-      previously reported to have this UIDVALIDITY.  A server MUST NOT
-      return two mailboxes with the same UNIQUEID.
+- **modseq**: Integer|null
+  This is the modseq of the individual message within the IMAP store,
+  or null if the server doesn't support [@RFC7162].
 
-The value of the UNIQUEID is an opaque string of 1..255 bytes in length.
-The UNIQUEID is server assigned and read-only.
+- **keywords**: String[Boolean]
+  This is identical to the "keywords" fetch item at the top level,
+  but contains the set of keywords on each individual IMAP message.
+  This may be the same for all messages, depending on the underlying
+  storage mechanics.
 
-The server MAY choose to create a UNIQUEID value in a way that does not
-survive RENAME, (e.g. a digest of mailboxname + uidvalidity could be used
-as a "UNIQUEID" and it would be legal, though of course clients would
-not get the full benefits of this extension from such a server).
+- **internaldate**: Date|null
+  This is the date at which the message was created.  This
+  may be the same as the JMAP createdAt value, or different if
+  the underlying store has different internaldates for different
+  messages.
 
-Example:
+- **savedate**: Date|null
+  This is the date at which the message was added to this mailbox,
+  or null if the server doesn't support [@draft-ietf-extra-imap-savedate].
 
-```
-C: 3 create foo
-S: 3 OK Completed
-C: 4 create bar
-S: 4 OK Completed
-C: 5 status foo (uniqueid uidvalidity)
-S: * STATUS foo (UIDVALIDITY 1521472287 UNIQUEID 7uijf0bg4yeo51a7)
-S: 5 OK Completed
-C: 6 status bar (uniqueid uidvalidity)
-S: * STATUS bar (UIDVALIDITY 1521472288 UNIQUEID u8vhi0uy16v5k99p)
-S: 6 OK Completed
-C: 7 rename foo renamed
-S: * OK rename foo renamed
-S: 7 OK Completed
-C: 8 status renamed (uniqueid uidvalidity)
-S: * STATUS renamed (UIDVALIDITY 1521472287 UNIQUEID 7uijf0bg4yeo51a7)
-S: 8 OK Completed
-C: 9 status bar (uniqueid uidvalidity)
-S: * STATUS bar (UIDVALIDITY 1521472288 UNIQUEID u8vhi0uy16v5k99p)
-S: 9 OK Completed
-```
+# Mailbox object properties
 
-When the LIST-STATUS IMAP capability [@!RFC5819] is also available,
-the STATUS command can be combined with the LIST command to further
-improve efficiency.  This way, the unique ids of many mailboxes can be
-queried with just one LIST command.
+This extension adds a single property to the Mailbox object:
 
-# FETCH Command and Response Extensions
+- **imapstatus**: ImapStatus|null
 
-This extension defines two additional FETCH items on messages:
+If the mailbox is not accessible via IMAP (e.g. a virtual mailbox)
+then it MUST have a null ImapStatus.
 
-MSGID
-    A server allocated opaque string value (1..255 bytes) which
-    uniquely identifies the content of a single message.  That is
-    the exact bytes of the RFC822 FETCH item.  The server MUST NOT
-    return the same MSGID for two different sets of bytes.  The
-    server SHOULD return the same MSGID for the same set of bytes.
+The ImapStatus object has the following properties:
 
-    The server SHOULD retain the same INTERNALDATE for messages with
-    the same MSGID.
+- **imapname**: String
+  The name of the mailbox in modified UTF7.  "SELECT {imapname}"
+  via IMAP would work if given this name.
 
-THRID
-    A server allocated opaque string value (1..255 bytes) which
-    is the same for messages which the server has, with its own
-    algorithm, decided are "related" in some way.  This is generally
-    based on some combination of References, In-Reply-To and Subject
-    but the exact logic is left up to the server implementation.
-    If the mailbox does not support THRID, it will return NIL for
-    fetch.
+- **uidvalidity**: Integer
+  The UIDVALIDITY as defined in [@RFC3501] for the underlying mailbox.
 
-    THRID MUST NOT change if MSGID is the same.
+- **uidnext**: Integer
+  The UIDNEXT as defined in [@RFC3501] for the underlying mailbox.
 
-Example:
+- **messages**: Integer
+  The MESSAGES status item (number of messages in mailbox) as defined
+  in [@RFC3501] for the underlying mailbox.
 
-```
-C: 5 append inbox "20-Mar-2018 03:07:37 +1100" {733}
-[...]
-Subject: Message A
-Message-ID: <fake.1521475657.54797@hotmail.com>
-[...]
-S: 5 OK [APPENDUID 1521475658 1] Completed
-
-C: 11 append inbox "20-Mar-2018 03:07:37 +1100" {793}
-[...]
-Subject: Re: Message A
-Message-ID: <fake.1521475657.21213@gmail.com>
-References: <fake.1521475657.54797@hotmail.com>
-[...]
-S: 11 OK [APPENDUID 1521475658 2] Completed
-
-C: 17 append inbox "20-Mar-2018 03:07:37 +1100" {736}
-[...]
-Subject: Message C
-Message-ID: <fake.1521475657.60280@hotmail.com>
-[...]
-S: 17 OK [APPENDUID 1521475658 3] Completed
-
-C: 22 fetch 1:* (msgid thrid)
-S: * 1 FETCH (MSGID Md8976d99ac3275bb4e918af4 THRID T4964b478a75b7ea9)
-S: * 2 FETCH (MSGID Mdd3c288836c4c7a762b2d2b9 THRID T4964b478a75b7ea9)
-S: * 3 FETCH (MSGID Mf2e25fdc09b49ea703b05cef THRID T6311863d02dd95b5)
-S: 22 OK Completed (0.000 sec)
-
-C: 23 move 2 foo
-S: * OK [COPYUID 1521475659 2 1] Completed
-S: * 2 EXPUNGE
-S: 23 OK Completed
-
-C: 24 fetch 1:* (msgid thrid)
-S: * 1 FETCH (MSGID Md8976d99ac3275bb4e918af4 THRID T4964b478a75b7ea9)
-S: * 2 FETCH (MSGID Mf2e25fdc09b49ea703b05cef THRID T6311863d02dd95b5)
-S: 24 OK Completed (0.000 sec)
-C: 25 select "foo"
-
-C: 25 select "foo"
-[...]
-S: 25 OK [READ-WRITE] Completed
-C: 26 fetch 1:* (msgid thrid)
-: * 1 FETCH (MSGID Mdd3c288836c4c7a762b2d2b9 THRID T4964b478a75b7ea9)
-S: 26 OK Completed (0.000 sec)
-```
-
-# SEARCH Command Extension
-
-This extension defines two new search keys for the SEARCH command:
-
-MSGID blob
-    Messages with the exactly matching MSGID (bytes, does not
-    depend on charset, case IS significant)
-
-THRID blob
-    Messages with the exactly matching THRID (bytes, does not
-    depend on charset, case IS significant)
-
-Example: (as if run before the MOVE above when the mailbox had 3 messages)
-
-```
-C: 27 search msgid Md8976d99ac3275bb4e918af4
-S: * SEARCH 1
-S: 27 OK Completed (1 msgs in 0.000 secs)
-C: 28 search thrid T4964b478a75b7ea9
-S: * SEARCH 1 2
-S: 28 OK Completed (2 msgs in 0.000 secs)
-```
-
+- **highestmodseq**: Integer|null
+  The HIGHESTMODSEQ of the mailbox, or null if the mailbox does not
+  support [@RFC7162].
 
 # Implementation considerations
 
-The case of RENAME INBOX may need special handling for unique ids.
+If the same message occurs multiple times in an IMAP store with different
+keywords, the combined keyword contents might be best calculated in different
+ways for different keywords, for example:
 
-It is OK to change the uniqueid on a folder RENAME, but you MUST NOT
-ever re-use a UNIQUEID which has been shown to a client.
-
-It is advisable (though not required) to have UNIQUEID be globally
-unique, but they it is only required to be unique within a single
-server.
-
-If you have unique IDs larger than 255 bytes in a data store, it is
-safe to use a cryptograhically strong hash to convert your IDs into
-a UNIQUEID value to display for this extension.  It may be worth
-caching that value, as STATUS UNIQUEID is expected to be cheap for
-the server to calculate.
-
-Ideas for implementing MSGID:
-
-* Digest of (MailboxName/UIDVALIDITY/UID) - is not kept when moving
-  messages, but is guarantee unique.
-* Digest of message content (RFC822 bytes) - expensive unless cached
-* ID allocated at creation time - very efficient but requires storage
-  of an additional value.
-
-Ideas for implementing THRID:
-
-* Derive from MSGID of first seen message in the thread.
-* ID allocated at creation time.
-
-There is a need to index and look up reference/in-reply-to data
-efficiently at message creation to efficiently find matching messages
-for threading.  Threading may be either across folders, or within
-each folder only.  The server has significant leeway here.
-
-
-
-# Future considerations
-
-This extension is intentionally defined to be compatible with the data
-model in JMAP. (XXX: ref)
-
-A future extension could be proposed to give a way to SELECT a mailbox
-by uniqueid rather than name.
-
-An extension to allow fetching message content directly via MSGID and
-fetch message listing by THRID could be proposed.
+ * $flagged should be set if any IMAP record has $flagged set
+ * $seen should only be set if ALL messages have $seen set (because
+   users are generally actually interested in "unseen")
 
 # IANA Considerations
 
-The IANA is requested to add "UNIQUEID" to the "IMAP Capabilities"
-registry located at <http://www.iana.org/assignments/imap-capabilities>.
+There will be a registration of an ID, but there's not yet a JMAP
+registry to add the it into.
 
 # Security Considerations
 
-If globally unique identifiers are used as UNIQUIDs on IMAP folders, then
-it may be possible to tell when an account or folder has been renamed,
-even if all the mail has been deleted, if the folders themselves are
-retained.
+There are no known security considerations for this extension.
 
 # Acknowledgments
 
-The EXTRA working group at IETF.
-
-The gmail team's X-GM-THRID and X-GM-MSGID implementation.
+Nope!
 
 {backmatter}
