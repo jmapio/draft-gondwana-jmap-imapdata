@@ -86,7 +86,7 @@ This extension adds a single property to the Email object:
 
 - **savedate**: Date|null
   This is the date at which the message was added to this mailbox,
-  or null if the server doesn't support [@draft-ietf-extra-imap-savedate].
+  or null if the server doesn't support [@I-D.ietf-extra-imap-savedate].
 
 # Mailbox object properties
 
