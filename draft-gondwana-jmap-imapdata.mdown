@@ -138,7 +138,7 @@ ways for different keywords, for example:
 # IANA Considerations
 
 There will be a registration of an ID, but there's not yet a JMAP
-registry to add the it into.
+registry to add the it into.  Maybe something like "ietf:jmap:imapdata".
 
 # Security Considerations
 
