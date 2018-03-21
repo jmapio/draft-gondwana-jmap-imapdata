@@ -63,21 +63,22 @@ described in [@!RFC2119] when they appear in ALL CAPS.  These words may
 also appear in this document in lower case as plain English words,
 absent their normative meanings.
 
-# Email object properties
+# Email Object properties
 
 This extension adds a single property to the Email object:
 
 - **imapdata**: String[Interger[ImapData]]
   This is a map of mailbox id to a map of uid to ImapData Object
 
-# ImapData Object
+## ImapData Object
 
-- **uid**: Integer
-  Is the same value as the key.
+The ImapData Object has the following properties:
 
-- **modseq**: Integer|null
-  This is the modseq of the individual message within the IMAP store,
-  or null if the server doesn't support [@!RFC7162].
+- **internaldate**: Date
+  This is the date at which the message was created.  This
+  may be the same as the JMAP createdAt value, or different if
+  the underlying store has different internaldates for different
+  messages.
 
 - **keywords**: String[Boolean]
   This is identical to the "keywords" fetch item at the top level,
@@ -85,17 +86,15 @@ This extension adds a single property to the Email object:
   This may be the same for all messages, depending on the underlying
   storage mechanics.
 
-- **internaldate**: Date|null
-  This is the date at which the message was created.  This
-  may be the same as the JMAP createdAt value, or different if
-  the underlying store has different internaldates for different
-  messages.
+- **modseq**: Integer|null
+  This is the modseq of the individual message within the IMAP store,
+  or null if the server doesn't support [@!RFC7162].
 
 - **savedate**: Date|null
   This is the date at which the message was added to this mailbox,
   or null if the server doesn't support [@!I-D.ietf-extra-imap-savedate].
 
-# Mailbox object properties
+# Mailbox Object properties
 
 This extension adds a single property to the Mailbox object:
 
@@ -104,25 +103,27 @@ This extension adds a single property to the Mailbox object:
 If the mailbox is not accessible via IMAP (e.g. a virtual mailbox)
 then it MUST have a null ImapStatus.
 
-The ImapStatus object has the following properties:
+## ImapStatus Object
+
+The ImapStatus Object has the following properties:
 
 - **imapname**: String
   The name of the mailbox in modified UTF7.  "SELECT {imapname}"
   via IMAP would work if given this name.
+
+- **highestmodseq**: Integer|null
+  The HIGHESTMODSEQ of the mailbox, or null if the mailbox does not
+  support [@!RFC7162].
+
+- **messages**: Integer
+  The MESSAGES status item (number of messages in mailbox) as defined
+  in [@!RFC3501] for the underlying mailbox.
 
 - **uidvalidity**: Integer
   The UIDVALIDITY as defined in [@!RFC3501] for the underlying mailbox.
 
 - **uidnext**: Integer
   The UIDNEXT as defined in [@!RFC3501] for the underlying mailbox.
-
-- **messages**: Integer
-  The MESSAGES status item (number of messages in mailbox) as defined
-  in [@!RFC3501] for the underlying mailbox.
-
-- **highestmodseq**: Integer|null
-  The HIGHESTMODSEQ of the mailbox, or null if the mailbox does not
-  support [@!RFC7162].
 
 # Implementation considerations
 
